@@ -411,6 +411,17 @@ class SyncytiaCounter(JFrame, Runnable):
 
 	def destroy(self):
 		self.scheduled_executor.shutdown()
+		if self.imp is None:
+			return
+		ic = self.imp.getCanvas()
+		for ml in ic.getMouseListeners():
+			if isinstance(ml, FusionClickListener):
+				ic.removeMouseListener(ml)
+		ic.addMouseListener(ic)
+		window = self.imp.getWindow()
+		for wl in window.getWindowListeners():
+			if isinstance(wl, ImageClosingListener):
+				window.removeWindowListener(wl)
 
 	def unlink_image(self):
 		self.imp = None
