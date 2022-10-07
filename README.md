@@ -8,17 +8,17 @@ Copy [/src/SyncytiaCounter_.py](https://github.com/melikovk/syncytia-counter-plu
 
 ## Interface Controls
 
-- Link Image: Link plugin to the current active image.
-- Add Syncytium: Add counter for the new syncytium.
-- Clear This Syncytium: Delete all marker for currently selected syncytium. *Not implemented yet.*
-- Clear All: Clear all markers.
-- Load Markers: Load markers from the file. *Note: Removes current markers.*
-- Show Numbers: Check if you want to show syncytium index next to the marker. Single Cell markers are always assigned index 0.
-- Hide Markers: Do not show markers on the image.
-- Marker Size: Select marker size.
-- Marker Shape: Select marker shape.
-- Results: Show table with counts for all syncytia.
-- Save Markers: Save markers to a file.
+- **Link Image:** Link plugin to the current active image.
+- **Add Syncytium:** Add counter for the new syncytium.
+- **Clear This Syncytium:** Delete all marker for currently selected syncytium. *Not implemented yet.*
+- **Clear All:** Clear all markers.
+- **Load Markers:** Load markers from the file. *Note: Removes current markers.*
+- **Show Numbers:** Check if you want to show syncytium index next to the marker. Single Cell markers are always assigned index 0.
+- **Hide Markers:** Do not show markers on the image.
+- **Marker Size:** Select marker size.
+- **Marker Shape:** Select marker shape.
+- **Results:** Show table with counts for all syncytia.
+- **Save Markers:** Save markers to a file.
 
 ## Usage
 
@@ -33,12 +33,3 @@ Markers are saved in json format. The python data structure saved in the file is
 ```
 
 Markers are saved in the order they were added.
-
- 
-
-
-
-
-
-
-
