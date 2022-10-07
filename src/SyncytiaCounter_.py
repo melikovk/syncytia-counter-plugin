@@ -5,7 +5,7 @@ from java.lang import Runnable
 from java.util.concurrent import Executors, TimeUnit
 from javax.swing import (JPanel, JFrame, JButton, JTextField, JCheckBox, JLabel,
                         SwingUtilities, BorderFactory, ButtonGroup, JComboBox,
-						JRadioButton, JSeparator, SwingUtilities)
+						JRadioButton, JSeparator, SwingUtilities, WindowConstants)
 from java.awt import GridBagLayout, GridBagConstraints, GridLayout, Insets
 from java.awt.event import (MouseAdapter, ActionListener, ItemListener,
 							WindowAdapter, ItemEvent)
@@ -34,7 +34,11 @@ class CleanupOnClose(WindowAdapter):
 		self.frame = frame
 
 	def windowClosing(self, event):
-		self.frame.destroy()
+		if (self.frame.syncytia_list == self.frame.saved_syncytia or
+			IJ.showMessageWithCancel("WARNING", 
+			"MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
+			self.frame.destroy()
+		print('ok')
 
 class ImageClosingListener(WindowAdapter):
 	def __init__(self, parent):
@@ -226,6 +230,7 @@ class SyncytiaCounter(JFrame, Runnable):
 		self.getContentPane().add(self.status_line, constraints)
 		self.pack()
 		self.setLocation(1000, 200)
+		self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		self.addWindowListener(CleanupOnClose(self))
 		self.setVisible(True)
 
@@ -412,6 +417,7 @@ class SyncytiaCounter(JFrame, Runnable):
 	def destroy(self):
 		self.scheduled_executor.shutdown()
 		if self.imp is None:
+			self.dispose()
 			return
 		ic = self.imp.getCanvas()
 		for ml in ic.getMouseListeners():
@@ -422,6 +428,7 @@ class SyncytiaCounter(JFrame, Runnable):
 		for wl in window.getWindowListeners():
 			if isinstance(wl, ImageClosingListener):
 				window.removeWindowListener(wl)
+		self.dispose()
 
 	def unlink_image(self):
 		self.imp = None
