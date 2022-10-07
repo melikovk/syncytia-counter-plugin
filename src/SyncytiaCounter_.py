@@ -38,7 +38,7 @@ class CleanupOnClose(WindowAdapter):
 			IJ.showMessageWithCancel("WARNING", 
 			"MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
 			self.frame.destroy()
-		print('ok')
+#		print('ok')
 
 class ImageClosingListener(WindowAdapter):
 	def __init__(self, parent):
@@ -405,6 +405,9 @@ class SyncytiaCounter(JFrame, Runnable):
 		self.saved_syncytia = self.syncytia_list.clone()
 
 	def update_counts(self):
+#		self.status_line.setText("nex_idx = {}, last_counter = {}".format(self.next_idx, self.syncytia_list.getLastCounter()))
+		while self.next_idx < self.syncytia_list.getLastCounter()+1:
+			self.add_syncytium()
 		syncytia = self.syncytia_list
 		self.count_labels[0].setText("{}".format(syncytia.getCount(0)-1))
 		for idx in range(1, self.next_idx):
@@ -416,18 +419,16 @@ class SyncytiaCounter(JFrame, Runnable):
 
 	def destroy(self):
 		self.scheduled_executor.shutdown()
-		if self.imp is None:
-			self.dispose()
-			return
-		ic = self.imp.getCanvas()
-		for ml in ic.getMouseListeners():
-			if isinstance(ml, FusionClickListener):
-				ic.removeMouseListener(ml)
-		ic.addMouseListener(ic)
-		window = self.imp.getWindow()
-		for wl in window.getWindowListeners():
-			if isinstance(wl, ImageClosingListener):
-				window.removeWindowListener(wl)
+		if self.imp is not None:
+			ic = self.imp.getCanvas()
+			for ml in ic.getMouseListeners():
+				if isinstance(ml, FusionClickListener):
+					ic.removeMouseListener(ml)
+			ic.addMouseListener(ic)
+			window = self.imp.getWindow()
+			for wl in window.getWindowListeners():
+				if isinstance(wl, ImageClosingListener):
+					window.removeWindowListener(wl)
 		self.dispose()
 
 	def unlink_image(self):
