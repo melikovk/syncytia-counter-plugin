@@ -35,10 +35,10 @@ def decoratePointRoi(cls):
     Inheriting from PointRoi does not work as it intereferes with clone method
     """
 
-    def link(self, imp):
-        self.imp = imp
-        imp.deleteRoi()
-        imp.setRoi(self)
+    # def link(self, imp):
+    #     self.imp = imp
+    #     imp.deleteRoi()
+    #     imp.setRoi(self)
 
     def eq(self, other):
         if self.getNCoordinates() != other.getNCoordinates():
@@ -108,17 +108,6 @@ class ImageClosingListener(WindowAdapter):
     def windowClosed(self, event):
         self.parent.unlink_image()
 
-class SyncytiaCounterItemListener(ItemListener):
-    def __init__(self):
-        self.actions = {}
-
-    def itemStateChanged(self, event):
-        self.actions[event.getSource()](event)
-
-    def register_component_handler(self, component, handler):
-        component.addItemListener(self)
-        self.actions[component] = handler
-
 class FusionClickListener(MouseAdapter):
     def __init__(self, ic, parent):
         super(FusionClickListener, self).__init__()
@@ -129,8 +118,8 @@ class FusionClickListener(MouseAdapter):
         ImageCanvas.mouseClicked(self.ic, event)
 
     def mouseEntered(self, event):
-        if (IJ.spaceBarDown() or 
-            Toolbar.getToolId() == Toolbar.MAGNIFIER or 
+        if (IJ.spaceBarDown() or
+            Toolbar.getToolId() == Toolbar.MAGNIFIER or
             Toolbar.getToolId() == Toolbar.HAND):
             ImageCanvas.mouseEntered(self.ic, event)
         else:
@@ -152,8 +141,9 @@ class FusionClickListener(MouseAdapter):
 
 class SyncytiaCounter(JFrame, Runnable):
     def __init__(self):
-        super(JFrame, self).__init__("Syncytia Counter", windowClosing=self.close)
-        self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
+        super(JFrame, self).__init__("Syncytia Counter",
+            windowClosing=self.close,
+            defaultCloseOperation=WindowConstants.DO_NOTHING_ON_CLOSE)
         self.imp = None
         self.filepath = None
         self.syncytia_list = None
@@ -163,7 +153,6 @@ class SyncytiaCounter(JFrame, Runnable):
         self.radio_buttons = []
         self.action_buttons = []
         self.output_buttons = []
-        self.item_listener = SyncytiaCounterItemListener()
         self.build_gui()
         # Add executor
         self.scheduled_executor = Executors.newSingleThreadScheduledExecutor()
@@ -254,7 +243,7 @@ class SyncytiaCounter(JFrame, Runnable):
         # Add "Counts Table" button
         counts_button = JButton("Results",
                                 enabled=False,
-                                actionPerformed=self.count_labels)
+                                actionPerformed=self.counts_table)
         action_panel.add(counts_button, constraints)
         self.output_buttons.append(counts_button)
         # Add "Save Markers" button
@@ -271,7 +260,7 @@ class SyncytiaCounter(JFrame, Runnable):
         self.syncytia_panel = syncytia_panel
         self.syncytia_group = ButtonGroup()
         # Add "Single cell" radiobutton and label
-        self.init_syncytium()
+        self.add_syncytium()
         # Add panels to frame
         constraints = GridBagConstraints()
         self.getContentPane().setLayout(GridBagLayout())
@@ -286,8 +275,6 @@ class SyncytiaCounter(JFrame, Runnable):
         self.getContentPane().add(self.status_line, constraints)
         self.pack()
         self.setLocation(1000, 200)
-        # self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        # self.addWindowListener(CleanupOnClose(self))
         self.setVisible(True)
 
     def link_image(self, event=None):
@@ -327,20 +314,6 @@ class SyncytiaCounter(JFrame, Runnable):
                 component.setEnabled(True)
             self.link_button.setEnabled(True)
 
-    def init_syncytium(self):
-        idx = self.next_idx
-        rb = JRadioButton("Single Cells", enabled=False, selected=True)
-        rb.setActionCommand(str(idx))
-        self.item_listener.register_component_handler(rb, self.select_syncytium)
-        label = JTextField("{}".format(0), enabled=False, editable=False)
-        label.setHorizontalAlignment(JTextField.CENTER)
-        self.syncytia_group.add(rb)
-        self.syncytia_panel.add(rb)
-        self.syncytia_panel.add(label)
-        self.radio_buttons.append(rb)
-        self.count_labels.append(label)
-        self.next_idx += 1
-
     def hide_markers(self, event=None):
         if self.hide_box.isSelected():
             self.imp.deleteRoi()
@@ -348,12 +321,16 @@ class SyncytiaCounter(JFrame, Runnable):
             self.imp.setRoi(self.syncytia_list)
 
     def add_syncytium(self, event=None):
-        idx = self.next_idx
-        name = "Syncytium {}".format(idx)
+        if self.next_idx == 0:
+            name = "Single Cells"
+        else:
+            name = "Syncytium {}".format(self.next_idx)
         # Create GUI elements
-        rb = JRadioButton(name, enabled=True)
-        rb.setActionCommand(str(idx))
-        self.item_listener.register_component_handler(rb, self.select_syncytium)
+        rb = JRadioButton(name,
+                          enabled=True,
+                          selected=True,
+                          actionCommand=str(self.next_idx),
+                          itemStateChanged=self.select_syncytium)
         label = JTextField("{}".format(0), enabled=False, editable=False)
         label.setHorizontalAlignment(JTextField.CENTER)
         self.syncytia_group.add(rb)
@@ -362,17 +339,14 @@ class SyncytiaCounter(JFrame, Runnable):
         self.radio_buttons.append(rb)
         self.count_labels.append(label)
         # Update roi counter
-        rb.setSelected(True)
+        if self.next_idx > 0:
+            rb.setSelected(True)
         self.next_idx += 1
         self.pack()
 
     def select_syncytium(self, event=None):
-        if event is None:
-            counter_idx = int(self.syncytia_group.getSelection().getActionCommand())
-            self.syncytia_list.setCounter(counter_idx)
-        elif event.getStateChange() == ItemEvent.SELECTED:
-            counter_idx = int(event.getItem().getActionCommand())
-            self.syncytia_list.setCounter(counter_idx)
+        counter_idx = int(self.syncytia_group.getSelection().getActionCommand())
+        self.syncytia_list.setCounter(counter_idx)
 
     def clear_syncytium(self, event=None):
         IJ.showMessage("Not implemented")
@@ -419,6 +393,7 @@ class SyncytiaCounter(JFrame, Runnable):
 
     def counts_table(self, event=None):
         table = self.syncytia_list.getTable()
+        print(table)
         table.show("SyncytiaCount")
 
     def save_markers(self, event=None):
@@ -433,10 +408,6 @@ class SyncytiaCounter(JFrame, Runnable):
         self.saved_syncytia = self.syncytia_list.clone()
 
     def update_counts(self):
-        # self.status_line.setText("nex_idx = {}, last_counter = {}".format(self.next_idx, self.syncytia_list.getLastCounter()))
-        # self.status_line.setText("{}".format(type(self.syncytia_list)))
-        # for p in self.syncytia_list:
-        #     print(p)
         while self.next_idx < self.syncytia_list.getLastCounter()+1:
             self.add_syncytium()
         syncytia = self.syncytia_list
