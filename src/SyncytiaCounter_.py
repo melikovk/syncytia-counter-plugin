@@ -101,34 +101,12 @@ def decoratePointRoi(cls):
 
 SyncytiaRoi = decoratePointRoi(PointRoi)
 
-class CleanupOnClose(WindowAdapter):
-    def __init__(self, frame):
-        self.frame = frame
-
-    def windowClosing(self, event):
-        if (self.frame.syncytia_list == self.frame.saved_syncytia or
-         IJ.showMessageWithCancel("WARNING",
-         "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
-            self.frame.destroy()
-#		print('ok')
-
 class ImageClosingListener(WindowAdapter):
     def __init__(self, parent):
         self.parent = parent
 
     def windowClosed(self, event):
         self.parent.unlink_image()
-
-class ClickButtonListener(ActionListener):
-    def __init__(self):
-        self.actions = {}
-
-    def actionPerformed(self, event):
-        self.actions[event.getSource()](event)
-
-    def register_component_handler(self, component, handler):
-        component.addActionListener(self)
-        self.actions[component] = handler
 
 class SyncytiaCounterItemListener(ItemListener):
     def __init__(self):
@@ -151,7 +129,9 @@ class FusionClickListener(MouseAdapter):
         ImageCanvas.mouseClicked(self.ic, event)
 
     def mouseEntered(self, event):
-        if (IJ.spaceBarDown() or Toolbar.getToolId() == Toolbar.MAGNIFIER  or Toolbar.getToolId() == Toolbar.HAND):
+        if (IJ.spaceBarDown() or 
+            Toolbar.getToolId() == Toolbar.MAGNIFIER or 
+            Toolbar.getToolId() == Toolbar.HAND):
             ImageCanvas.mouseEntered(self.ic, event)
         else:
             Toolbar.getInstance().setTool("multipoint")
@@ -172,7 +152,8 @@ class FusionClickListener(MouseAdapter):
 
 class SyncytiaCounter(JFrame, Runnable):
     def __init__(self):
-        self.setTitle("Syncytia Counter")
+        super(JFrame, self).__init__("Syncytia Counter", windowClosing=self.close)
+        self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
         self.imp = None
         self.filepath = None
         self.syncytia_list = None
@@ -182,7 +163,6 @@ class SyncytiaCounter(JFrame, Runnable):
         self.radio_buttons = []
         self.action_buttons = []
         self.output_buttons = []
-        self.action_listener = ClickButtonListener()
         self.item_listener = SyncytiaCounterItemListener()
         self.build_gui()
         # Add executor
@@ -190,7 +170,7 @@ class SyncytiaCounter(JFrame, Runnable):
         time_offset_to_start = 1000
         time_between_runs = 100
         self.scheduled_executor.scheduleWithFixedDelay(self,
-         time_offset_to_start, time_between_runs, TimeUnit.MILLISECONDS)
+            time_offset_to_start, time_between_runs, TimeUnit.MILLISECONDS)
 
     def build_gui(self):
         # Build panel with control buttons
@@ -203,68 +183,84 @@ class SyncytiaCounter(JFrame, Runnable):
         constraints.insets = Insets(2, 2, 2, 2)
         self.action_panel = action_panel
         # Add "Link Image" Button
-        link_button = JButton("Link Image", enabled=True)
-        self.action_listener.register_component_handler(link_button, self.link_image)
+        link_button = JButton("Link Image",
+                              enabled=True,
+                              actionPerformed=self.link_image)
         action_panel.add(link_button, constraints)
         self.link_button = link_button
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Add Syncytium" Button
-        add_button = JButton("Add Syncytium", enabled=False)
-        self.action_listener.register_component_handler(add_button, self.add_syncytium)
+        add_button = JButton("Add Syncytium",
+                             enabled=False,
+                             actionPerformed=self.add_syncytium)
         action_panel.add(add_button, constraints)
         self.action_buttons.append(add_button)
         # Add "Clear this syncytium" button
-        clearthis_button = JButton("Clear This Syncytium", enabled=False)
-        self.action_listener.register_component_handler(clearthis_button, self.clear_syncytium)
+        clearthis_button = JButton("Clear This Syncytium",
+                                   enabled=False,
+                                   actionPerformed=self.clear_syncytium)
         action_panel.add(clearthis_button, constraints)
         self.action_buttons.append(clearthis_button)
         # Add "Clear All" button
-        clearall_button = JButton("Clear All", enabled=False)
-        self.action_listener.register_component_handler(clearall_button, self.clear_all_syncytia)
+        clearall_button = JButton("Clear All",
+                                  enabled=False,
+                                  actionPerformed=self.clear_all_syncytia)
         action_panel.add(clearall_button, constraints)
         self.action_buttons.append(clearall_button)
         # Add "Load Markers" button
-        load_button = JButton("Load Markers", enabled=False)
-        self.action_listener.register_component_handler(load_button, self.load_markers)
+        load_button = JButton("Load Markers",
+                              enabled=False,
+                              actionPerformed=self.load_markers)
         action_panel.add(load_button, constraints)
         self.action_buttons.append(load_button)
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Show Numbers" checkbox
-        show_numbers_box = JCheckBox("Show Numbers", selected=True, enabled=False)
-        self.item_listener.register_component_handler(show_numbers_box, self.update_show_numbers)
+        show_numbers_box = JCheckBox("Show Numbers",
+                                     selected=True,
+                                     enabled=False,
+                                     actionPerformed=self.update_show_numbers)
         action_panel.add(show_numbers_box, constraints)
         self.show_numbers = show_numbers_box
         # Add "Hide Markers" checkbox
-        hide_box = JCheckBox("Hide Markers", selected=False, enabled=False)
-        self.item_listener.register_component_handler(hide_box, self.hide_markers)
+        hide_box = JCheckBox("Hide Markers",
+                             selected=False,
+                             enabled=False,
+                             actionPerformed=self.hide_markers)
         action_panel.add(hide_box, constraints)
         self.hide_box = hide_box
         # Add "Marker Size"
         marker_size_label = JLabel("Marker Size", JLabel.CENTER, enabled=False)
-        marker_size_combo = JComboBox(MARKER_SIZES, enabled=False, selectedIndex = DEFAULT_SIZE)
-        self.item_listener.register_component_handler(marker_size_combo, self.update_marker_size)
+        marker_size_combo = JComboBox(MARKER_SIZES,
+                                      enabled=False,
+                                      selectedIndex=DEFAULT_SIZE,
+                                      itemStateChanged=self.update_marker_size)
         action_panel.add(marker_size_label, constraints)
         action_panel.add(marker_size_combo, constraints)
         self.marker_size = marker_size_combo
         # Add "Marker Shape"
         marker_shape_label = JLabel("Marker Shape", JLabel.CENTER, enabled=False)
-        marker_shape_combo = JComboBox(MARKER_SHAPES, enabled=False, selectedIndex = DEFAULT_SHAPE)
-        self.item_listener.register_component_handler(marker_shape_combo, self.update_marker_shape)
+        marker_shape_combo = JComboBox(
+            MARKER_SHAPES,
+            enabled=False,
+            selectedIndex=DEFAULT_SHAPE,
+            itemStateChanged=self.update_marker_shape)
         action_panel.add(marker_shape_label, constraints)
         action_panel.add(marker_shape_combo, constraints)
         self.marker_shape = marker_shape_combo
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Counts Table" button
-        counts_button = JButton("Results", enabled=False)
-        self.action_listener.register_component_handler(counts_button, self.counts_table)
+        counts_button = JButton("Results",
+                                enabled=False,
+                                actionPerformed=self.count_labels)
         action_panel.add(counts_button, constraints)
         self.output_buttons.append(counts_button)
         # Add "Save Markers" button
-        save_button = JButton("Save Markers", enabled=False)
-        self.action_listener.register_component_handler(save_button, self.save_markers)
+        save_button = JButton("Save Markers",
+                              enabled=False,
+                              actionPerformed=self.save_markers)
         action_panel.add(save_button, constraints)
         self.output_buttons.append(save_button)
         # Build panel with syncytia counts
@@ -290,8 +286,8 @@ class SyncytiaCounter(JFrame, Runnable):
         self.getContentPane().add(self.status_line, constraints)
         self.pack()
         self.setLocation(1000, 200)
-        self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        self.addWindowListener(CleanupOnClose(self))
+        # self.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        # self.addWindowListener(CleanupOnClose(self))
         self.setVisible(True)
 
     def link_image(self, event=None):
@@ -311,8 +307,6 @@ class SyncytiaCounter(JFrame, Runnable):
             self.set_roi(SyncytiaRoi(-10,-10))
             self.saved_syncytia = self.syncytia_list.clone()
             fileinfo = imp.getOriginalFileInfo()
-            # for p in dir(self.syncytia_list):
-            #     print(p)
             if fileinfo is not None:
                 self.filepath = os.path.join(fileinfo.directory, fileinfo.fileName)
         else:
@@ -454,19 +448,22 @@ class SyncytiaCounter(JFrame, Runnable):
         if self.imp is not None:
             self.update_counts()
 
-    def destroy(self):
-        self.scheduled_executor.shutdown()
-        if self.imp is not None:
-            ic = self.imp.getCanvas()
-            for ml in ic.getMouseListeners():
-                if isinstance(ml, FusionClickListener):
-                    ic.removeMouseListener(ml)
-            ic.addMouseListener(ic)
-            window = self.imp.getWindow()
-            for wl in window.getWindowListeners():
-                if isinstance(wl, ImageClosingListener):
-                    window.removeWindowListener(wl)
-        self.dispose()
+    def close(self, event=None):
+        if (self.syncytia_list == self.saved_syncytia
+                or IJ.showMessageWithCancel(
+                    "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
+            self.scheduled_executor.shutdown()
+            if self.imp is not None:
+                ic = self.imp.getCanvas()
+                for ml in ic.getMouseListeners():
+                    if isinstance(ml, FusionClickListener):
+                        ic.removeMouseListener(ml)
+                ic.addMouseListener(ic)
+                window = self.imp.getWindow()
+                for wl in window.getWindowListeners():
+                    if isinstance(wl, ImageClosingListener):
+                        window.removeWindowListener(wl)
+            self.dispose()
 
     def unlink_image(self):
         self.imp = None
