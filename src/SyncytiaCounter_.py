@@ -35,6 +35,11 @@ def decoratePointRoi(cls):
     Inheriting from PointRoi does not work as it intereferes with clone method
     """
 
+    def link(self, imp):
+        self.imp = imp
+        imp.deleteRoi()
+        imp.setRoi(self)
+
     def eq(self, other):
         if self.getNCoordinates() != other.getNCoordinates():
             return False
@@ -46,7 +51,7 @@ def decoratePointRoi(cls):
                 return False
         return True
 
-    def from_json(cls, fpath):
+    def from_json(cls, fpath, imp):
         """ Create new roi from json file. Return None if file format is not 
         correct.
         """
@@ -56,14 +61,21 @@ def decoratePointRoi(cls):
             IJ.showDialog("Wrong format of the file!")
             return
         roi = cls(-10, -10)
-        for point in data['data']:
-            roi.setCounter(point['idx'])
-            roi.addPoint(*point['position'])
+        for marker in data['data']:
+            roi.setCounter(marker['idx'])
+            roi.addPoint(imp, *marker['position'])
         return roi
 
     def to_json(self, fpath):
         """ Save markers to json file
         """
+        indexes = [i & 255 for i in self.getCounters()]
+        points = [(p.x, p.y) for p in self.getContainedPoints()]
+        syncytia_list = []
+        for i in range(1, len(indexes)):
+            syncytia_list.append({'idx':indexes[i], 'position':points[i]})
+        with open(fpath, 'w') as f:
+            json.dump({"format":"markers", "data":syncytia_list}, f)
 
     def get_table(self):
         table = ResultsTable()
@@ -299,6 +311,8 @@ class SyncytiaCounter(JFrame, Runnable):
             self.set_roi(SyncytiaRoi(-10,-10))
             self.saved_syncytia = self.syncytia_list.clone()
             fileinfo = imp.getOriginalFileInfo()
+            # for p in dir(self.syncytia_list):
+            #     print(p)
             if fileinfo is not None:
                 self.filepath = os.path.join(fileinfo.directory, fileinfo.fileName)
         else:
@@ -376,9 +390,6 @@ class SyncytiaCounter(JFrame, Runnable):
         roi.setPointType(self.marker_shape.getSelectedIndex())
         roi.setShowLabels(self.show_numbers.isSelected())
         self.syncytia_list = roi
-        for idx in range(self.next_idx, roi.getLastCounter()+1):
-            self.add_syncytium()
-        self.select_syncytium()
 
     def clear_all_syncytia(self, event=None):
         if IJ.showMessageWithCancel("WARNING", "CLEAR ALL SYNCYTIA?"):
@@ -405,7 +416,7 @@ class SyncytiaCounter(JFrame, Runnable):
         filedialog = OpenDialog('Load Markers from json File', "")
         if filedialog.getPath():
             fpath = os.path.join(filedialog.getDirectory(),filedialog.getFileName())
-            syncytia_list = SyncytiaRoi.fromJSON(fpath)
+            syncytia_list = SyncytiaRoi.fromJSON(fpath, self.imp)
             if syncytia_list is None:
                 IJ.showDialog("Wrong format of the file!")
             else:
@@ -424,18 +435,14 @@ class SyncytiaCounter(JFrame, Runnable):
         filedialog = SaveDialog('Select filename to save', fname, ".json")
         if filedialog.getFileName():
             fpath = filedialog.getDirectory()+filedialog.getFileName()
-            indexes = [i & 255 for i in self.syncytia_list.getCounters()]
-            points = [(p.x, p.y) for p in self.syncytia_list.getContainedPoints()]
-            syncytia_list = []
-            for i in range(1, len(indexes)):
-                syncytia_list.append({'idx':indexes[i], 'position':points[i]})
-            with open(fpath, 'w') as f:
-                json.dump({"format":"markers", "data":syncytia_list}, f)
+            self.syncytia_list.toJSON(fpath)
         self.saved_syncytia = self.syncytia_list.clone()
 
     def update_counts(self):
         # self.status_line.setText("nex_idx = {}, last_counter = {}".format(self.next_idx, self.syncytia_list.getLastCounter()))
         # self.status_line.setText("{}".format(type(self.syncytia_list)))
+        # for p in self.syncytia_list:
+        #     print(p)
         while self.next_idx < self.syncytia_list.getLastCounter()+1:
             self.add_syncytium()
         syncytia = self.syncytia_list
