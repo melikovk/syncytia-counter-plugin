@@ -44,13 +44,28 @@ class SyncytiaRoi:
         self.imp.deleteRoi()
         self.imp.setRoi(self._roi)
 
-    def setCounter(self, idx):
+    def isLinked(self):
+        return self.imp is not None
+
+    def unlinkImage(self):
+        if self.imp is not None and self.imp.isVisible():
+            ic = self.imp.getCanvas()
+            for ml in ic.getMouseListeners():
+                if isinstance(ml, FusionClickListener):
+                    ic.removeMouseListener(ml)
+            ic.addMouseListener(ic)
+            window = self.imp.getWindow()
+            for wl in window.getWindowListeners():
+                if isinstance(wl, ImageClosingListener):
+                    window.removeWindowListener(wl)
+
+    def setSyncytium(self, idx):
         self._roi.setCounter(idx)
 
-    def getLastCounter(self):
+    def getSyncytiaNumber(self):
         return self._roi.getLastCounter()
 
-    def getCount(self, idx):
+    def getNucleiCount(self, idx):
         return self._roi.getCount(idx)
 
     def isSaved(self):
@@ -101,11 +116,11 @@ class SyncytiaRoi:
         """
         indexes = [i & 255 for i in self._roi.getCounters()]
         points = [(p.x, p.y) for p in self._roi.getContainedPoints()]
-        syncytia_list = []
+        syncytia = []
         for i in range(1, len(indexes)):
-            syncytia_list.append({'idx':indexes[i], 'position':points[i]})
+            syncytia.append({'idx':indexes[i], 'position':points[i]})
         with open(fpath, 'w') as f:
-            json.dump({"format":"markers", "data":syncytia_list}, f)
+            json.dump({"format":"markers", "data":syncytia}, f)
         self._saved = self._roi.clone()
 
     def getTable(self):
@@ -131,17 +146,16 @@ class SyncytiaRoi:
         self.imp.setRoi(self._roi)
 
 class ImageClosingListener(WindowAdapter):
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self, gui):
+        self.gui = gui
 
     def windowClosed(self, event):
-        self.parent.unlink_image()
+        self.gui.unlink_image()
 
 class FusionClickListener(MouseAdapter):
-    def __init__(self, ic, parent):
+    def __init__(self, ic):
         super(FusionClickListener, self).__init__()
         self.ic = ic
-        self.parent = parent
 
     def mouseClicked(self, event):
         ImageCanvas.mouseClicked(self.ic, event)
@@ -169,8 +183,7 @@ class SyncytiaCounter(JFrame, Runnable):
         super(JFrame, self).__init__("Syncytia Counter",
             windowClosing=self.close,
             defaultCloseOperation=WindowConstants.DO_NOTHING_ON_CLOSE)
-        # self.filepath = None
-        self.syncytia_list = SyncytiaRoi()
+        self.syncytia = SyncytiaRoi()
         self.next_idx = 0
         self.count_labels = []
         self.radio_buttons = []
@@ -304,22 +317,19 @@ class SyncytiaCounter(JFrame, Runnable):
         imp = WindowManager.getCurrentImage()
         if imp is None:
             IJ.noImage()
-        elif self.syncytia_list.imp != imp:
-            # Replace MouseListener
+        else:
             ic = imp.getCanvas()
             for ml in ic.getMouseListeners():
                 ic.removeMouseListener(ml)
-            ic.addMouseListener(FusionClickListener(ic, self))
+            ic.addMouseListener(FusionClickListener(ic))
             imp.getWindow().addWindowListener(ImageClosingListener(self))
+            self.syncytia.linkImage(imp)
             self.status_line.setText(imp.getTitle())
-            self.syncytia_list.linkImage(imp)
             self.update_markers()
             self.update_button_states()
-        else:
-            IJ.showMessage("The image '{}' is already linked".format(imp.getTitle()))
 
     def update_button_states(self):
-        if self.syncytia_list.imp is not None:
+        if self.syncytia.isLinked():
             for component in self.action_panel.getComponents():
                 component.setEnabled(True)
             for rb in self.syncytia_group.getElements():
@@ -334,7 +344,7 @@ class SyncytiaCounter(JFrame, Runnable):
             self.link_button.setEnabled(True)
 
     def hide_markers(self, event=None):
-        self.syncytia_list.hideMarkers(self.hide_box.isSelected())
+        self.syncytia.hideMarkers(self.hide_box.isSelected())
 
     def add_syncytium(self, event=None):
         if self.next_idx == 0:
@@ -362,78 +372,70 @@ class SyncytiaCounter(JFrame, Runnable):
 
     def select_syncytium(self, event=None):
         counter_idx = int(self.syncytia_group.getSelection().getActionCommand())
-        self.syncytia_list.setCounter(counter_idx)
+        self.syncytia.setSyncytium(counter_idx)
 
     def clear_syncytium(self, event=None):
         IJ.showMessage("Not implemented")
 
     def clear_all_syncytia(self, event=None):
         if IJ.showMessageWithCancel("WARNING", "CLEAR ALL SYNCYTIA?"):
-            self.syncytia_list.clearAll()
+            self.syncytia.clearAll()
             self.update_markers()
             self.select_syncytium()
 
     def update_markers(self, event=None):
-        self.syncytia_list.updateMarkers(self.marker_size.getSelectedIndex(),
+        self.syncytia.updateMarkers(self.marker_size.getSelectedIndex(),
                                          self.marker_shape.getSelectedIndex(),
                                          self.show_numbers.isSelected())
 
     def load_markers(self, event=None):
-        if (not self.syncytia_list.isSaved() and
+        if (not self.syncytia.isSaved() and
             not IJ.showMessageWithCancel("WARNING", "THIS WILL CLEAR EXISTING MARKERS")):
             return
         filedialog = OpenDialog('Load Markers from json File', "")
         if filedialog.getPath():
             fpath = os.path.join(filedialog.getDirectory(),filedialog.getFileName())
-            self.syncytia_list.fromJSON(fpath)
+            self.syncytia.fromJSON(fpath)
             self.update_markers()
 
     def counts_table(self, event=None):
-        table = self.syncytia_list.getTable()
+        table = self.syncytia.getTable()
         table.show("SyncytiaCount")
 
     def save_markers(self, event=None):
-        if self.syncytia_list.isEmpty():
+        if self.syncytia.isEmpty():
             IJ.showMessage("There are no markers, Nothing to save")
             return
         fname = os.path.splitext(self.status_line.getText())[0]+'_markers'
         filedialog = SaveDialog('Select filename to save', fname, ".json")
         if filedialog.getFileName():
             fpath = filedialog.getDirectory()+filedialog.getFileName()
-            self.syncytia_list.toJSON(fpath)
+            self.syncytia.toJSON(fpath)
 
     def update_counts(self):
-        while self.next_idx < self.syncytia_list.getLastCounter()+1:
+        while self.next_idx < self.syncytia.getSyncytiaNumber()+1:
             self.add_syncytium()
-        syncytia = self.syncytia_list
-        self.count_labels[0].setText("{}".format(syncytia.getCount(0)-1))
+        self.count_labels[0].setText("{}".format(
+            self.syncytia.getNucleiCount(0)-1))
         for idx in range(1, self.next_idx):
-            self.count_labels[idx].setText("{}".format(syncytia.getCount(idx)))
+            self.count_labels[idx].setText("{}".format(
+                self.syncytia.getNucleiCount(idx)))
 
     def run(self):
-        if self.syncytia_list.imp is not None:
+        if self.syncytia.isLinked():
             self.update_counts()
 
     def close(self, event=None):
-        if (self.syncytia_list.isSaved()
+        if (self.syncytia.isSaved()
                 or IJ.showMessageWithCancel(
                     "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
             self.scheduled_executor.shutdown()
-            if self.syncytia_list.imp is not None:
-                ic = self.syncytia_list.imp.getCanvas()
-                for ml in ic.getMouseListeners():
-                    if isinstance(ml, FusionClickListener):
-                        ic.removeMouseListener(ml)
-                ic.addMouseListener(ic)
-                window = self.syncytia_list.imp.getWindow()
-                for wl in window.getWindowListeners():
-                    if isinstance(wl, ImageClosingListener):
-                        window.removeWindowListener(wl)
+            self.syncytia.unlinkImage()
             self.dispose()
 
     def unlink_image(self):
         print('OK')
-        self.syncytia_list.imp = None
+        self.syncytia.unlinkImage()
         self.update_button_states()
 
 if __name__ in ['__main__', '__builtin__']:
