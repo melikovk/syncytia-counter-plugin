@@ -5,11 +5,12 @@ from copy import copy
 from java.lang import Runnable, Cloneable
 from java.util.concurrent import Executors, TimeUnit
 from javax.swing import (JPanel, JFrame, JButton, JTextField, JCheckBox, JLabel,
-                        SwingUtilities, BorderFactory, ButtonGroup, JComboBox,
-      JRadioButton, JSeparator, SwingUtilities, WindowConstants)
-from java.awt import GridBagLayout, GridBagConstraints, GridLayout, Insets
+    JScrollPane, JSplitPane, SwingUtilities, BorderFactory, ButtonGroup,
+    JComboBox, JRadioButton, JSeparator, SwingUtilities, WindowConstants)
+from java.awt import (GridBagLayout, GridBagConstraints, GridLayout, Insets,
+    Toolkit, Dimension)
 from java.awt.event import (MouseAdapter, ActionListener, ItemListener,
-       WindowAdapter, ItemEvent)
+    WindowAdapter, ItemEvent)
 
 from ij import WindowManager, IJ
 from ij.gui import Toolbar, ImageCanvas, PointRoi
@@ -295,13 +296,15 @@ class SyncytiaCounter(JFrame, Runnable):
         syncytia_panel.setLayout(syncytia_layout)
         self.syncytia_panel = syncytia_panel
         self.syncytia_group = ButtonGroup()
+        scroll_pane = JScrollPane(syncytia_panel, 22, 31)
+        self.scroll_pane = scroll_pane
         # Add "Single cell" radiobutton and label
         self.add_syncytium()
         # Add panels to frame
         constraints = GridBagConstraints()
         self.getContentPane().setLayout(GridBagLayout())
         constraints.anchor = GridBagConstraints.NORTH
-        self.getContentPane().add(syncytia_panel, constraints)
+        self.getContentPane().add(scroll_pane, constraints)
         self.getContentPane().add(action_panel, constraints)
         # Add status line
         self.status_line = JTextField(enabled=False)
@@ -311,6 +314,13 @@ class SyncytiaCounter(JFrame, Runnable):
         self.getContentPane().add(self.status_line, constraints)
         self.pack()
         self.setLocation(1000, 200)
+        # Set minimal sizes
+        self.setMinimumSize(self.getSize())
+        action_panel.setMinimumSize(action_panel.getSize())
+        size = scroll_pane.getSize()
+        size.height = action_panel.getSize().height
+        scroll_pane.setMinimumSize(size)
+        self.pack()
         self.setVisible(True)
 
     def link_image(self, event=None):
@@ -348,7 +358,7 @@ class SyncytiaCounter(JFrame, Runnable):
 
     def add_syncytium(self, event=None):
         if self.next_idx == 0:
-            name = "Single Cells"
+            name = "Single Cells       "
         else:
             name = "Syncytium {}".format(self.next_idx)
         # Create GUI elements
@@ -368,6 +378,14 @@ class SyncytiaCounter(JFrame, Runnable):
         if self.next_idx > 0:
             rb.setSelected(True)
         self.next_idx += 1
+        if self.next_idx == 1:
+            return
+        size = self.syncytia_panel.getMinimumSize()
+        max_height = self.action_panel.getMinimumSize().height
+        if size.height > max_height:
+            size.height = max_height
+            size.width = self.scroll_pane.getMinimumSize().width
+            self.scroll_pane.setPreferredSize(size)
         self.pack()
 
     def select_syncytium(self, event=None):
