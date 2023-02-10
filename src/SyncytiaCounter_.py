@@ -1,16 +1,13 @@
 import os.path
 import json
-from copy import copy
 
-from java.lang import Runnable, Cloneable
+from java.lang import Runnable
 from java.util.concurrent import Executors, TimeUnit
 from javax.swing import (JPanel, JFrame, JButton, JTextField, JCheckBox, JLabel,
-    JScrollPane, JSplitPane, SwingUtilities, BorderFactory, ButtonGroup,
-    JComboBox, JRadioButton, JSeparator, SwingUtilities, WindowConstants)
-from java.awt import (GridBagLayout, GridBagConstraints, GridLayout, Insets,
-    Toolkit, Dimension)
-from java.awt.event import (MouseAdapter, ActionListener, ItemListener,
-    WindowAdapter, ItemEvent)
+    JScrollPane, BorderFactory, ButtonGroup, JComboBox, JRadioButton, 
+    JSeparator, WindowConstants)
+from java.awt import GridBagLayout, GridBagConstraints, GridLayout, Insets
+from java.awt.event import MouseAdapter, WindowAdapter
 
 from ij import WindowManager, IJ
 from ij.gui import Toolbar, ImageCanvas, PointRoi, Overlay
@@ -484,7 +481,6 @@ class SyncytiaCounter(JFrame, Runnable):
         for idx in range(1, self.next_idx):
             self.count_labels[idx].setText("{}".format(
                 self.syncytia.getNucleiCount(idx)))
-        # print(self.next_idx)
 
     def run(self):
         if self.syncytia.isLinked():
@@ -499,7 +495,6 @@ class SyncytiaCounter(JFrame, Runnable):
             self.dispose()
 
     def unlink_image(self):
-        print('OK')
         self.syncytia.unlinkImage()
         self.update_button_states()
 
