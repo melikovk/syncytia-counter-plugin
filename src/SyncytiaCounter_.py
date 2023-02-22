@@ -24,10 +24,6 @@ DEFAULT_SHOW_NUMBERS = True
 DEFAULT_SIZE = 2
 DEFAULT_SHAPE = PointRoi.DOT
 
-#
-# Define Auxilary Classes
-#
-
 class SyncytiaRoi:
     """ Wrap PointRoi with additional methods
     """
@@ -36,36 +32,20 @@ class SyncytiaRoi:
         self._roi = [PointRoi(-10,-10)]
         self._saved = [roi.clone() for roi in self._roi]
         self._roi_idx = 0
-        self._roi_limit = 100
+        self._roi_limit = 10
         self._overlay = Overlay(self._roi[0])
-        self.imp = None
 
-    def linkImage(self, imp):
-        self.imp = imp
-        self.imp.setRoi(self._roi[0])
-        self.imp.setOverlay(self._overlay)
+    def getActiveRoi(self):
+        return self._roi[self._roi_idx]
 
-    def isLinked(self):
-        return self.imp is not None
-
-    def unlinkImage(self):
-        if self.imp is not None and self.imp.isVisible():
-            ic = self.imp.getCanvas()
-            for ml in ic.getMouseListeners():
-                if isinstance(ml, FusionClickListener):
-                    ic.removeMouseListener(ml)
-            ic.addMouseListener(ic)
-            window = self.imp.getWindow()
-            for wl in window.getWindowListeners():
-                if isinstance(wl, ImageClosingListener):
-                    window.removeWindowListener(wl)
-
+    def getOverlay(self):
+        return self._overlay
+        
     def setSyncytium(self, idx):
         q, r = divmod(idx, self._roi_limit)
         while q + 1 > len(self._roi):
             self.appendRoi()
         self._roi[q].setCounter(r)
-        self.imp.setRoi(self._roi[q])
         self._roi_idx = q
 
     def getSyncytiaNumber(self):
@@ -102,6 +82,7 @@ class SyncytiaRoi:
         roi.setSize(self._roi[0].getSize())
         roi.setPointType(self._roi[0].getPointType())
         roi.setShowLabels(self._roi[0].getShowLabels())
+        # IJ.run("Point Tool...", "".format())
         self._roi.append(roi)
         self._overlay.add(roi)
 
@@ -110,15 +91,6 @@ class SyncytiaRoi:
             roi.setSize(markerSize)
             roi.setPointType(markerType)
             roi.setShowLabels(showLabels)
-        self.imp.getCanvas().repaintOverlay()
-
-    def hideMarkers(self, hide):
-        if hide:
-            self.imp.deleteRoi()
-            self.imp.setHideOverlay(True)
-        else:
-            self.imp.setRoi(self._roi[self._roi_idx])
-            self.imp.setHideOverlay(False)
 
     def isEmpty(self):
         return all([roi.getNCoordinates() == 1 for roi in self._roi])
@@ -143,9 +115,7 @@ class SyncytiaRoi:
             while q + 1 > len(self._roi):
                 self.appendRoi()
             self._roi[q].setCounter(r)
-            self._roi[q].addPoint(self.imp, *marker['position'])
-        self.imp.setRoi(self._roi[0])
-        self.imp.setOverlay(self._overlay)
+            self._roi[q].addPoint(*marker['position'])
         self._saved = [roi.clone() for roi in self._roi]
         
     def toJSON(self, fpath):
@@ -185,8 +155,6 @@ class SyncytiaRoi:
         self._overlay = Overlay()
         for roi in self._roi:
             self._overlay.add(roi)
-        self.imp.setRoi(self._roi[0])
-        self.imp.setOverlay(self._overlay)
 
 class ImageClosingListener(WindowAdapter):
     def __init__(self, gui):
@@ -227,6 +195,7 @@ class SyncytiaCounter(JFrame, Runnable):
             windowClosing=self.close,
             defaultCloseOperation=WindowConstants.DO_NOTHING_ON_CLOSE)
         self.syncytia = SyncytiaRoi()
+        self.imp = None
         self.next_idx = 0
         self.count_labels = []
         self.radio_buttons = []
@@ -375,13 +344,15 @@ class SyncytiaCounter(JFrame, Runnable):
                 ic.removeMouseListener(ml)
             ic.addMouseListener(FusionClickListener(ic))
             imp.getWindow().addWindowListener(ImageClosingListener(self))
-            self.syncytia.linkImage(imp)
+            imp.setRoi(self.syncytia.getActiveRoi())
+            imp.setOverlay(self.syncytia.getOverlay())
+            self.imp = imp
             self.status_line.setText(imp.getTitle())
             self.update_markers()
             self.update_button_states()
 
     def update_button_states(self):
-        if self.syncytia.isLinked():
+        if self.imp is not None:
             for component in self.action_panel.getComponents():
                 component.setEnabled(True)
             for rb in self.syncytia_group.getElements():
@@ -396,7 +367,12 @@ class SyncytiaCounter(JFrame, Runnable):
             self.link_button.setEnabled(True)
 
     def hide_markers(self, event=None):
-        self.syncytia.hideMarkers(self.hide_box.isSelected())
+        if self.hide_box.isSelected():
+            self.imp.deleteRoi()
+            self.imp.setHideOverlay(True)
+        else:
+            self.imp.setRoi(self.syncytia.getActiveRoi())
+            self.imp.setHideOverlay(False)
 
     def add_syncytium(self, event=None):
         if self.next_idx == 0:
@@ -434,6 +410,7 @@ class SyncytiaCounter(JFrame, Runnable):
     def select_syncytium(self, event=None):
         counter_idx = int(self.syncytia_group.getSelection().getActionCommand())
         self.syncytia.setSyncytium(counter_idx)
+        self.imp.setRoi(self.syncytia.getActiveRoi())
 
     def clear_syncytium(self, event=None):
         IJ.showMessage("Not implemented")
@@ -443,11 +420,19 @@ class SyncytiaCounter(JFrame, Runnable):
             self.syncytia.clearAll()
             self.update_markers()
             self.select_syncytium()
+            self.imp.setRoi(self.syncytia.getActiveRoi())
+            self.imp.setOverlay(self.syncytia.getOverlay())
 
     def update_markers(self, event=None):
-        self.syncytia.updateMarkers(self.marker_size.getSelectedIndex(),
-                                         self.marker_shape.getSelectedIndex(),
-                                         self.show_numbers.isSelected())
+        size = self.marker_size.getSelectedIndex()
+        shape = self.marker_shape.getSelectedIndex()
+        show_numbers = self.show_numbers.isSelected()
+        IJ.run("Point Tool...", "size={} type={} show {}".format(
+            MARKER_SIZES[size],
+            MARKER_SHAPES[shape],
+            "label" if show_numbers else ""))
+        self.syncytia.updateMarkers(size, shape, show_numbers)
+        self.imp.getCanvas().repaintOverlay()
 
     def load_markers(self, event=None):
         if (not self.syncytia.isSaved() and
@@ -457,6 +442,8 @@ class SyncytiaCounter(JFrame, Runnable):
         if filedialog.getPath():
             fpath = os.path.join(filedialog.getDirectory(),filedialog.getFileName())
             self.syncytia.fromJSON(fpath)
+            self.imp.setRoi(self.syncytia.getActiveRoi())
+            self.imp.setOverlay(self.syncytia.getOverlay())
             self.update_markers()
 
     def counts_table(self, event=None):
@@ -483,7 +470,7 @@ class SyncytiaCounter(JFrame, Runnable):
                 self.syncytia.getNucleiCount(idx)))
 
     def run(self):
-        if self.syncytia.isLinked():
+        if self.imp is not None:
             self.update_counts()
 
     def close(self, event=None):
@@ -491,11 +478,21 @@ class SyncytiaCounter(JFrame, Runnable):
                 or IJ.showMessageWithCancel(
                     "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
             self.scheduled_executor.shutdown()
-            self.syncytia.unlinkImage()
+            self.unlink_image()
             self.dispose()
 
     def unlink_image(self):
-        self.syncytia.unlinkImage()
+        if self.imp is not None and self.imp.isVisible():
+            ic = self.imp.getCanvas()
+            for ml in ic.getMouseListeners():
+                if isinstance(ml, FusionClickListener):
+                    ic.removeMouseListener(ml)
+            ic.addMouseListener(ic)
+            window = self.imp.getWindow()
+            for wl in window.getWindowListeners():
+                if isinstance(wl, ImageClosingListener):
+                    window.removeWindowListener(wl)
+        self.imp = None
         self.update_button_states()
 
 if __name__ in ['__main__', '__builtin__']:
