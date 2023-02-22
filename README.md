@@ -26,10 +26,23 @@ The interface is launched with only ***Link image*** button activated. Pressing 
 
 ## File format
 
-Markers are saved in json format. The python data structure saved in the file is below:
+Markers are saved in the following json format:
 
-```python
-{'format':"markers", 'data':[{'idx': idx, 'position':(x,y)}, ...]}
+```json
+{
+  'format':"markers",
+  'data':[
+     {
+      'idx':idx1,
+      'position':(x1,y1)
+     },
+     {
+      'idx':idx2,
+      'position':(x2,y2)
+     },
+     ...
+  ]
+}
 ```
 
 Markers are saved in the order they were added.
