@@ -28,39 +28,52 @@ class SyncytiaRoi:
     """ Wrap PointRoi with additional methods
     """
 
-    def __init__(self):
-        self._roi = [PointRoi(-10,-10)]
-        self._saved = [roi.clone() for roi in self._roi]
-        self.active_roi = self._roi[0]
+    def __init__(self, 
+                 marker_size=DEFAULT_SIZE,
+                 marker_type=DEFAULT_SHAPE,
+                 show_labels=DEFAULT_SHOW_NUMBERS):
+        self._single_cells = PointRoi(-10,-10)
+        self._roi = []
+        self._saved = [self._single_cells]
+        self.active_roi = self._single_cells
         self._roi_limit = 10
-        self.overlay = Overlay(self._roi[0])
+        self.syncytia_count = 1
+        self.overlay = Overlay(self.active_roi)
+        self.marker_size = marker_size
+        self.marker_type = marker_type
+        self.show_labels = show_labels
+        self.update_markers
 
     def set_syncytium(self, idx):
-        q, r = divmod(idx, self._roi_limit)
-        while q + 1 > len(self._roi):
-            self.append_roi()
-        self._roi[q].setCounter(r)
-        self.active_roi = self._roi[q]
-
-    def get_syncytia_number(self):
-        num = ((len(self._roi) - 1) * self._roi_limit + 
-               self._roi[-1].getLastCounter())
-        return num if num > 0 else 1
+        if idx == 0:
+            self.active_roi = self._single_cells
+            self.active_roi.setCounter(0)
+        else:
+            q, r = divmod(idx - 1, self._roi_limit)
+            while q + 1 > len(self._roi):
+                self.append_roi()
+            self.active_roi = self._roi[q]
+            self.active_roi.setCounter(r)
+            if idx >= self.syncytia_count:
+                self.syncytia_count = idx + 1
 
     def get_nuclei_count(self, idx):
-        q, r = divmod(idx, self._roi_limit)
-        if q + 1 > len(self._roi):
-            return 0
-        if r > 0:
-            n = self._roi[q].getCount(r)
+        if idx == 0:
+            n = self._single_cells.getCount(0) - 1
         else:
-            n = self._roi[q].getCount(r) - 1
+            q, r = divmod(idx - 1, self._roi_limit)
+            if q + 1 > len(self._roi):
+                return 0
+            if r > 0:
+                n = self._roi[q].getCount(r)
+            else:
+                n = self._roi[q].getCount(r) - 1
         return n
 
     def is_saved(self):
-        if len(self._roi) != len(self._saved):
+        if len(self._roi) + 1 != len(self._saved):
             return False
-        for roi, saved in zip(self._roi, self._saved):
+        for roi, saved in zip(self._roi + [self._single_cells], self._saved):
             if roi.getNCoordinates() != saved.getNCoordinates():
                 return False
             points = roi.getContainedPoints()
@@ -73,21 +86,33 @@ class SyncytiaRoi:
 
     def append_roi(self):
         roi = PointRoi(-10,-10)
-        roi.setSize(self._roi[0].getSize())
-        roi.setPointType(self._roi[0].getPointType())
-        roi.setShowLabels(self._roi[0].getShowLabels())
+        roi.setSize(self.marker_size)
+        roi.setPointType(self.marker_type)
+        roi.setShowLabels(self.show_labels)
+        roi.setCounter(99)
         # IJ.run("Point Tool...", "".format())
         self._roi.append(roi)
         self.overlay.add(roi)
 
-    def updateMarkers(self, markerSize, markerType, showLabels):
+    def set_markers(self, marker_size, marker_type, show_labels):
+        self.marker_size = marker_size
+        self.marker_type = marker_type
+        self.show_labels = show_labels
+        self.update_markers()
+        
+    def update_markers(self):
         for roi in self._roi:
-            roi.setSize(markerSize)
-            roi.setPointType(markerType)
-            roi.setShowLabels(showLabels)
+            roi.setSize(self.marker_size)
+            roi.setPointType(self.marker_type)
+            roi.setShowLabels(self.show_labels)
+        self._single_cells.setSize(self.marker_size)
+        self._single_cells.setPointType(self.marker_type)
+        self._single_cells.setShowLabels(False)
 
     def is_empty(self):
-        return all([roi.getNCoordinates() == 1 for roi in self._roi])
+        result = (all([roi.getNCoordinates() == 1 for roi in self._roi])
+             and self._single_cells.getNCoordinates() == 1)
+        return result 
 
     def from_json(self, fpath):
         """Load markers from json file. Return None if file format is not 
@@ -98,38 +123,45 @@ class SyncytiaRoi:
         if data.get("format") != "markers":
             IJ.showDialog("Wrong format of the file!")
             return
-        markerSize = self._roi[0].getSize()
-        markerType = self._roi[0].getPointType()
-        showLabels = self._roi[0].getShowLabels()
-        self._roi = [PointRoi(-10,-10)]
-        self.overlay = Overlay(self._roi[0])
-        self.updateMarkers(markerSize, markerType, showLabels)
+        self.reset()
+        syncytia_count = 1
         for marker in data['data']:
-            q, r = divmod(marker['idx'], self._roi_limit)
-            while q + 1 > len(self._roi):
-                self.append_roi()
-            self._roi[q].setCounter(r)
-            self._roi[q].addPoint(*marker['position'])
+            if marker['idx'] == 0:
+                self._single_cells.addPoint(*marker['position'])
+            else:
+                q, r = divmod(marker['idx'] - 1, self._roi_limit)
+                while q + 1 > len(self._roi):
+                    self.append_roi()
+                self._roi[q].setCounter(r)
+                self._roi[q].addPoint(*marker['position'])
+                if marker['idx'] >= syncytia_count:
+                    syncytia_count = marker['idx'] + 1
+        self.syncytia_count = syncytia_count 
         self._saved = [roi.clone() for roi in self._roi]
+        self._saved.append(self._single_cells.clone())
         
     def to_json(self, fpath):
         """ Save markers to json file
         """
+        # Save single cells
+        syncytia = [{'idx': idx, 'position': (p.x, p.y)} 
+            for p in self._single_cells.getContainedPoints()[1:]]
+        # Save syncytia
         indexes = []
         points = []
         for idx, roi in enumerate(self._roi):
-            indexes += [self._roi_limit * idx + i & 255 
-                            for i in roi.getCounters()[1:]]
+            indexes += [self._roi_limit * idx + i & 255 + 1 
+                for i in roi.getCounters()[1:]]
             points += [(p.x, p.y) for p in roi.getContainedPoints()[1:]]
-        syncytia = [{'idx': idx, 'position':p} 
-                        for idx, p in zip(indexes, points)]
+        syncytia += [{'idx': idx, 'position':p} 
+            for idx, p in zip(indexes, points)]
         with open(fpath, 'w') as f:
             json.dump({"format":"markers", "data":syncytia}, f)
         self._saved = [roi.clone() for roi in self._roi]
 
     def get_table(self):
         table = ResultsTable()
-        max_idx = self.get_syncytia_number()
+        max_idx = self.syncytia_count
         count = self.get_nuclei_count(0)
         table.addValue("Count", count)
         table.addLabel("Single cells")
@@ -144,11 +176,13 @@ class SyncytiaRoi:
         return table
 
     def reset(self):
-        self._roi = [PointRoi(-10, -10)]
-        self._saved = [roi.clone() for roi in self._roi]
+        self._single_cells = PointRoi(-10,-10)
+        self._roi = []
+        self.syncytia_count = 1
+        self._saved = [self._single_cells]
+        self.active_roi = self._single_cells
         self.overlay = Overlay()
-        for roi in self._roi:
-            self.overlay.add(roi)
+        self.overlay.add(self.active_roi)
 
 class ImageClosingListener(WindowAdapter):
     def __init__(self, gui):
@@ -261,6 +295,13 @@ class SyncytiaCounter(JFrame, Runnable):
                              actionPerformed=self.hide_markers)
         action_panel.add(hide_box, constraints)
         self.hide_box = hide_box
+        # Add "Hide Single Cells" checkbox
+        hide_single_box = JCheckBox("Hide Single Cells",
+                             selected=False,
+                             enabled=False,
+                             actionPerformed=self.hide_single_cells)
+        action_panel.add(hide_single_box, constraints)
+        self.hide_single_box = hide_single_box
         # Add "Marker Size"
         marker_size_label = JLabel("Marker Size", JLabel.CENTER, enabled=False)
         marker_size_combo = JComboBox(MARKER_SIZES,
@@ -367,11 +408,25 @@ class SyncytiaCounter(JFrame, Runnable):
             self.imp.setRoi(self.syncytia.active_roi)
             self.imp.setHideOverlay(False)
 
+    def hide_single_cells(self, event=None):
+        print('Hide')
+        if self.hide_single_box.isSelected():
+            print('Hide2')
+            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
+            self.syncytia.overlay.remove(self.syncytia._single_cells)
+            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
+        elif not self.syncytia.overlay.contains(self.syncytia._single_cells):
+            print('Hide3')
+            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
+            self.syncytia.overlay.add(self.syncytia._single_cells)
+            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
+        self.imp.getCanvas().repaintOverlay()
+
     def add_syncytium(self, event=None):
         if self.next_idx == 0:
             name = "Single Cells       "
         else:
-            name = "Syncytium {}".format(self.next_idx)
+            name = "Syncytium {}".format(self.next_idx-1)
         # Create GUI elements
         rb = JRadioButton(name,
                           enabled=True,
@@ -431,7 +486,7 @@ class SyncytiaCounter(JFrame, Runnable):
             MARKER_SIZES[size],
             MARKER_SHAPES[shape],
             "label" if show_numbers else ""))
-        self.syncytia.updateMarkers(size, shape, show_numbers)
+        self.syncytia.set_markers(size, shape, show_numbers)
         self.imp.getCanvas().repaintOverlay()
 
     def load_markers(self, event=None):
@@ -446,7 +501,10 @@ class SyncytiaCounter(JFrame, Runnable):
             self.revalidate()
             self.imp.setRoi(self.syncytia.active_roi)
             self.imp.setOverlay(self.syncytia.overlay)
+            self.select_syncytium()
             self.update_markers()
+            self.hide_markers()
+            self.hide_single_cells()
 
     def counts_table(self, event=None):
         table = self.syncytia.get_table()
@@ -463,7 +521,7 @@ class SyncytiaCounter(JFrame, Runnable):
             self.syncytia.to_json(fpath)
 
     def update_counts(self):
-        while self.next_idx < self.syncytia.get_syncytia_number():
+        while self.next_idx < self.syncytia.syncytia_count:
             self.add_syncytium()
         self.count_labels[0].setText("{}".format(
             self.syncytia.get_nuclei_count(0)))
@@ -498,7 +556,7 @@ class SyncytiaCounter(JFrame, Runnable):
         self.update_button_states()
 
     def remove_extra_counters(self):
-        while self.next_idx > self.syncytia.get_syncytia_number():
+        while self.next_idx > self.syncytia.syncytia_count:
             rb = self.radio_buttons.pop()
             label = self.count_labels.pop()
             self.syncytia_group.remove(rb)
