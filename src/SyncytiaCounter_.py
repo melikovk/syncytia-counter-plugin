@@ -45,7 +45,7 @@ class SyncytiaRoi:
     def get_syncytia_number(self):
         num = ((len(self._roi) - 1) * self._roi_limit + 
                self._roi[-1].getLastCounter())
-        return num
+        return num if num > 0 else 1
 
     def get_nuclei_count(self, idx):
         q, r = divmod(idx, self._roi_limit)
@@ -144,7 +144,7 @@ class SyncytiaRoi:
         return table
 
     def reset(self):
-        self._roi = [PointRoi(-10, -10) for _ in self._roi]
+        self._roi = [PointRoi(-10, -10)]
         self._saved = [roi.clone() for roi in self._roi]
         self.overlay = Overlay()
         for roi in self._roi:
@@ -325,7 +325,6 @@ class SyncytiaCounter(JFrame, Runnable):
         size = scroll_pane.getSize()
         size.height = action_panel.getSize().height
         scroll_pane.setMinimumSize(size)
-        self.pack()
         self.setVisible(True)
 
     def link_image(self, event=None):
@@ -392,15 +391,20 @@ class SyncytiaCounter(JFrame, Runnable):
         self.next_idx += 1
         if self.next_idx == 1:
             return
+        self.update_syncytia_panel()
+
+    def update_syncytia_panel(self):
         size = self.scroll_pane.getPreferredSize()
         max_height = self.action_panel.getMinimumSize().height
         if size.height > max_height:
             size.height = max_height
             self.scroll_pane.setPreferredSize(size)
+        else:
+            self.scroll_pane.setPreferredSize(None)
         self.revalidate()
         new_height = self.scroll_pane.getVerticalScrollBar().getMaximum()
         self.scroll_pane.getVerticalScrollBar().setValue(new_height)
-
+        
     def select_syncytium(self, event=None):
         counter_idx = int(self.syncytia_group.getSelection().getActionCommand())
         self.syncytia.set_syncytium(counter_idx)
@@ -412,6 +416,8 @@ class SyncytiaCounter(JFrame, Runnable):
     def clear_all_syncytia(self, event=None):
         if IJ.showMessageWithCancel("WARNING", "CLEAR ALL SYNCYTIA?"):
             self.syncytia.reset()
+            self.remove_extra_counters()
+            self.update_syncytia_panel()
             self.update_markers()
             self.select_syncytium()
             self.imp.setRoi(self.syncytia.active_roi)
@@ -436,6 +442,8 @@ class SyncytiaCounter(JFrame, Runnable):
         if filedialog.getPath():
             fpath = os.path.join(filedialog.getDirectory(),filedialog.getFileName())
             self.syncytia.from_json(fpath)
+            self.remove_extra_counters()
+            self.revalidate()
             self.imp.setRoi(self.syncytia.active_roi)
             self.imp.setOverlay(self.syncytia.overlay)
             self.update_markers()
@@ -455,7 +463,7 @@ class SyncytiaCounter(JFrame, Runnable):
             self.syncytia.to_json(fpath)
 
     def update_counts(self):
-        while self.next_idx < self.syncytia.get_syncytia_number()+1:
+        while self.next_idx < self.syncytia.get_syncytia_number():
             self.add_syncytium()
         self.count_labels[0].setText("{}".format(
             self.syncytia.get_nuclei_count(0)))
@@ -488,6 +496,16 @@ class SyncytiaCounter(JFrame, Runnable):
                     window.removeWindowListener(wl)
         self.imp = None
         self.update_button_states()
+
+    def remove_extra_counters(self):
+        while self.next_idx > self.syncytia.get_syncytia_number():
+            rb = self.radio_buttons.pop()
+            label = self.count_labels.pop()
+            self.syncytia_group.remove(rb)
+            self.syncytia_panel.remove(rb)
+            self.syncytia_panel.remove(label)
+            self.next_idx -= 1
+        self.radio_buttons[-1].setSelected(True)
 
 if __name__ in ['__main__', '__builtin__']:
     SyncytiaCounter()
