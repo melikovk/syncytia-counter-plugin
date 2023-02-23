@@ -80,7 +80,7 @@ class SyncytiaRoi:
             other_points = saved.getContainedPoints()
             for i in range(roi.getNCoordinates()):
                 if (points[i] != other_points[i] or
-                 roi.getCounter(i) != saved.getCounter(i)):
+                    roi.getCounter(i) != saved.getCounter(i)):
                     return False
         return True
 
@@ -90,7 +90,6 @@ class SyncytiaRoi:
         roi.setPointType(self.marker_type)
         roi.setShowLabels(self.show_labels)
         roi.setCounter(99)
-        # IJ.run("Point Tool...", "".format())
         self._roi.append(roi)
         self.overlay.add(roi)
 
@@ -111,7 +110,7 @@ class SyncytiaRoi:
 
     def is_empty(self):
         result = (all([roi.getNCoordinates() == 1 for roi in self._roi])
-             and self._single_cells.getNCoordinates() == 1)
+            and self._single_cells.getNCoordinates() == 1)
         return result 
 
     def from_json(self, fpath):
@@ -248,66 +247,75 @@ class SyncytiaCounter(JFrame, Runnable):
         constraints.insets = Insets(2, 2, 2, 2)
         self.action_panel = action_panel
         # Add "Link Image" Button
-        link_button = JButton("Link Image",
-                              enabled=True,
-                              actionPerformed=self.link_image)
+        link_button = JButton(
+            "Link Image",
+            enabled=True,
+            actionPerformed=self.link_image)
         action_panel.add(link_button, constraints)
         self.link_button = link_button
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Add Syncytium" Button
-        add_button = JButton("Add Syncytium",
-                             enabled=False,
-                             actionPerformed=self.add_syncytium)
+        add_button = JButton(
+            "Add Syncytium",
+            enabled=False,
+            actionPerformed=self.add_syncytium)
         action_panel.add(add_button, constraints)
         self.action_buttons.append(add_button)
         # Add "Clear this syncytium" button
-        clearthis_button = JButton("Clear This Syncytium",
-                                   enabled=False,
-                                   actionPerformed=self.clear_syncytium)
+        clearthis_button = JButton(
+            "Clear This Syncytium",
+            enabled=False,
+            actionPerformed=self.clear_syncytium)
         action_panel.add(clearthis_button, constraints)
         self.action_buttons.append(clearthis_button)
         # Add "Clear All" button
-        clearall_button = JButton("Clear All",
-                                  enabled=False,
-                                  actionPerformed=self.clear_all_syncytia)
+        clearall_button = JButton(
+            "Clear All",
+            enabled=False,
+            actionPerformed=self.clear_all_syncytia)
         action_panel.add(clearall_button, constraints)
         self.action_buttons.append(clearall_button)
         # Add "Load Markers" button
-        load_button = JButton("Load Markers",
-                              enabled=False,
-                              actionPerformed=self.load_markers)
+        load_button = JButton(
+            "Load Markers",
+            enabled=False,
+            actionPerformed=self.load_markers)
         action_panel.add(load_button, constraints)
         self.action_buttons.append(load_button)
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Show Numbers" checkbox
-        show_numbers_box = JCheckBox("Show Numbers",
-                                     selected=True,
-                                     enabled=False,
-                                     actionPerformed=self.update_markers)
+        show_numbers_box = JCheckBox(
+            "Show Numbers",
+            selected=True,
+            enabled=False,
+            actionPerformed=self.update_markers)
         action_panel.add(show_numbers_box, constraints)
         self.show_numbers = show_numbers_box
         # Add "Hide Markers" checkbox
-        hide_box = JCheckBox("Hide Markers",
-                             selected=False,
-                             enabled=False,
-                             actionPerformed=self.hide_markers)
+        hide_box = JCheckBox(
+            "Hide Markers",
+            selected=False,
+            enabled=False,
+            actionPerformed=self.hide_markers)
         action_panel.add(hide_box, constraints)
         self.hide_box = hide_box
         # Add "Hide Single Cells" checkbox
-        hide_single_box = JCheckBox("Hide Single Cells",
-                             selected=False,
-                             enabled=False,
-                             actionPerformed=self.hide_single_cells)
+        hide_single_box = JCheckBox(
+            "Hide Single Cells",
+            selected=False,
+            enabled=False,
+            actionPerformed=self.hide_single_cells)
         action_panel.add(hide_single_box, constraints)
         self.hide_single_box = hide_single_box
         # Add "Marker Size"
         marker_size_label = JLabel("Marker Size", JLabel.CENTER, enabled=False)
-        marker_size_combo = JComboBox(MARKER_SIZES,
-                                      enabled=False,
-                                      selectedIndex=DEFAULT_SIZE,
-                                      itemStateChanged=self.update_markers)
+        marker_size_combo = JComboBox(
+            MARKER_SIZES,
+            enabled=False,
+            selectedIndex=DEFAULT_SIZE,
+            itemStateChanged=self.update_markers)
         action_panel.add(marker_size_label, constraints)
         action_panel.add(marker_size_combo, constraints)
         self.marker_size = marker_size_combo
@@ -324,15 +332,17 @@ class SyncytiaCounter(JFrame, Runnable):
         # Add separator
         action_panel.add(JSeparator(), constraints)
         # Add "Counts Table" button
-        counts_button = JButton("Results",
-                                enabled=False,
-                                actionPerformed=self.counts_table)
+        counts_button = JButton(
+            "Results",
+            enabled=False,
+            actionPerformed=self.counts_table)
         action_panel.add(counts_button, constraints)
         self.output_buttons.append(counts_button)
         # Add "Save Markers" button
-        save_button = JButton("Save Markers",
-                              enabled=False,
-                              actionPerformed=self.save_markers)
+        save_button = JButton(
+            "Save Markers",
+            enabled=False,
+            actionPerformed=self.save_markers)
         action_panel.add(save_button, constraints)
         self.output_buttons.append(save_button)
         # Build panel with syncytia counts
@@ -409,17 +419,10 @@ class SyncytiaCounter(JFrame, Runnable):
             self.imp.setHideOverlay(False)
 
     def hide_single_cells(self, event=None):
-        print('Hide')
         if self.hide_single_box.isSelected():
-            print('Hide2')
-            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
             self.syncytia.overlay.remove(self.syncytia._single_cells)
-            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
         elif not self.syncytia.overlay.contains(self.syncytia._single_cells):
-            print('Hide3')
-            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
             self.syncytia.overlay.add(self.syncytia._single_cells)
-            print(self.syncytia.overlay.contains(self.syncytia._single_cells))
         self.imp.getCanvas().repaintOverlay()
 
     def add_syncytium(self, event=None):
@@ -428,11 +431,12 @@ class SyncytiaCounter(JFrame, Runnable):
         else:
             name = "Syncytium {}".format(self.next_idx-1)
         # Create GUI elements
-        rb = JRadioButton(name,
-                          enabled=True,
-                          selected=True,
-                          actionCommand=str(self.next_idx),
-                          itemStateChanged=self.select_syncytium)
+        rb = JRadioButton(
+            name,
+            enabled=True,
+            selected=True,
+            actionCommand=str(self.next_idx),
+            itemStateChanged=self.select_syncytium)
         label = JTextField("{}".format(0), enabled=False, editable=False)
         label.setHorizontalAlignment(JTextField.CENTER)
         self.syncytia_group.add(rb)
@@ -534,9 +538,8 @@ class SyncytiaCounter(JFrame, Runnable):
             self.update_counts()
 
     def close(self, event=None):
-        if (self.syncytia.is_saved()
-                or IJ.showMessageWithCancel(
-                    "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
+        if (self.syncytia.is_saved() or IJ.showMessageWithCancel(
+            "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
             self.scheduled_executor.shutdown()
             self.unlink_image()
             self.dispose()
