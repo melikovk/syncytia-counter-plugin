@@ -38,7 +38,7 @@ class SyncytiaRoi:
         self.roi = []
         self.saved = [self.single_cells]
         self.active_roi = self.single_cells
-        self.roi_limit = 10
+        self.roi_limit = 100
         self.syncytia_count = 1
         self.overlay = Overlay(self.active_roi)
         self.set_markers(marker_size, marker_type, show_labels)
