@@ -7,9 +7,9 @@ from javax.swing import (JPanel, JFrame, JButton, JTextField, JCheckBox, JLabel,
     JScrollPane, BorderFactory, ButtonGroup, JComboBox, JRadioButton, 
     JSeparator, WindowConstants)
 from java.awt import GridBagLayout, GridBagConstraints, GridLayout, Insets
-from java.awt.event import MouseAdapter, WindowAdapter
+from java.awt.event import MouseAdapter
 
-from ij import WindowManager, IJ
+from ij import WindowManager, IJ, ImageListener, ImagePlus
 from ij.gui import Toolbar, ImageCanvas, PointRoi, Overlay
 from ij.measure import ResultsTable
 from ij.io import SaveDialog, OpenDialog
@@ -188,41 +188,31 @@ class SyncytiaRoi:
         table.deleteRow(table.getCounter() - 1)
         return table
 
-class ImageClosingListener(WindowAdapter):
-    def __init__(self, gui):
-        self.gui = gui
-
-    def windowClosed(self, event):
-        self.gui.unlink_image()
-
 class FusionClickListener(MouseAdapter):
     def __init__(self, ic):
         super(FusionClickListener, self).__init__()
         self.ic = ic
 
     def mouseClicked(self, event):
-        ImageCanvas.mouseClicked(self.ic, event)
+        pass
 
     def mouseEntered(self, event):
         if (
-                IJ.spaceBarDown() or
-                Toolbar.getToolId()==Toolbar.MAGNIFIER or
-                Toolbar.getToolId()==Toolbar.HAND):
-            ImageCanvas.mouseEntered(self.ic, event)
-        else:
+                not IJ.spaceBarDown()
+                and not Toolbar.getToolId()==Toolbar.MAGNIFIER
+                and not Toolbar.getToolId()==Toolbar.HAND):
             Toolbar.getInstance().setTool("multipoint")
-            ImageCanvas.mouseEntered(self.ic, event)
 
     def mouseExited(self, event):
-        ImageCanvas.mouseExited(self.ic, event)
+        pass
 
     def mousePressed(self, event):
-        ImageCanvas.mousePressed(self.ic, event)
+        pass
 
     def mouseReleased(self, event):
-        ImageCanvas.mouseReleased(self.ic, event)
+        pass
 
-class SyncytiaCounter(JFrame, Runnable):
+class SyncytiaCounter(JFrame, Runnable, ImageListener):
     def __init__(self):
         super(JFrame, self).__init__(
             "Syncytia Counter",
@@ -235,6 +225,7 @@ class SyncytiaCounter(JFrame, Runnable):
         self.radio_buttons = []
         self.output_buttons = []
         self.build_gui()
+        ImagePlus.addImageListener(self)
         # Add executor
         self.scheduled_executor = Executors.newSingleThreadScheduledExecutor()
         time_offset_to_start = 1000
@@ -390,10 +381,7 @@ class SyncytiaCounter(JFrame, Runnable):
             if self.imp is not None:
                 self.unlink_image()
             ic = imp.getCanvas()
-            for ml in ic.getMouseListeners():
-                ic.removeMouseListener(ml)
             ic.addMouseListener(FusionClickListener(ic))
-            imp.getWindow().addWindowListener(ImageClosingListener(self))
             imp.setRoi(self.syncytia.active_roi)
             imp.setOverlay(self.syncytia.overlay)
             self.imp = imp
@@ -592,15 +580,20 @@ class SyncytiaCounter(JFrame, Runnable):
             for ml in ic.getMouseListeners():
                 if isinstance(ml, FusionClickListener):
                     ic.removeMouseListener(ml)
-            ic.addMouseListener(ic)
-            window = self.imp.getWindow()
-            for wl in window.getWindowListeners():
-                if isinstance(wl, ImageClosingListener):
-                    window.removeWindowListener(wl)
             self.imp.setOverlay(None)
             self.imp.setRoi(None)
         self.imp = None
         self.update_button_states()
+
+    def imageClosed(self, imp):
+        if imp == self.imp:
+            self.unlink_image()
+
+    def imageOpened(self, imp):
+        pass
+
+    def imageUpdated(self, imp):
+        pass
 
 if __name__ in ['__main__', '__builtin__']:
     SyncytiaCounter()
