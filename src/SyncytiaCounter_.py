@@ -34,7 +34,7 @@ class SyncytiaRoi:
             marker_size=DEFAULT_SIZE,
             marker_type=DEFAULT_SHAPE,
             show_labels=DEFAULT_SHOW_NUMBERS):
-        self.single_cells = PointRoi(-10,-10)
+        self.single_cells = PointRoi()
         self.roi = []
         self.saved = [self.single_cells]
         self.active_roi = self.single_cells
@@ -63,13 +63,13 @@ class SyncytiaRoi:
             return
         self.overlay.remove(self.active_roi)
         if idx == 0:
-            self.single_cells = PointRoi(-10,-10)
+            self.single_cells = PointRoi()
             self.active_roi = self.single_cells
         else:
             q, r = divmod(idx - 1, self.roi_limit)
-            roi = PointRoi(-10,-10)
-            for idx, p in enumerate(self.active_roi.getContainedPoints()[1:]):
-                counter = self.active_roi.getCounter(idx + 1)
+            roi = PointRoi()
+            for idx, p in enumerate(self.active_roi.getContainedPoints()):
+                counter = self.active_roi.getCounter(idx)
                 if counter != r:
                     roi.setCounter(counter)
                     roi.addPoint(p.x, p.y)
@@ -80,7 +80,7 @@ class SyncytiaRoi:
 
     def nuclei_count(self, idx):
         if idx == 0:
-            n = self.single_cells.getCount(0) - 1
+            n = max(0, self.single_cells.getCount(0) - 1)
         else:
             q, r = divmod(idx - 1, self.roi_limit)
             if q + 1 > len(self.roi):
@@ -88,7 +88,7 @@ class SyncytiaRoi:
             if r > 0:
                 n = self.roi[q].getCount(r)
             else:
-                n = self.roi[q].getCount(r) - 1
+                n = max(0, self.roi[q].getCount(r) - 1)
         return n
 
     def is_saved(self):
@@ -106,7 +106,7 @@ class SyncytiaRoi:
         return True
 
     def append_roi(self):
-        roi = PointRoi(-10,-10)
+        roi = PointRoi()
         roi.setSize(self.marker_size)
         roi.setPointType(self.marker_type)
         roi.setShowLabels(self.show_labels)
@@ -130,8 +130,8 @@ class SyncytiaRoi:
         self.single_cells.setShowLabels(False)
 
     def is_empty(self):
-        result = (all([roi.getNCoordinates() == 1 for roi in self.roi])
-            and self.single_cells.getNCoordinates() == 1)
+        result = (all([roi.getNCoordinates() == 0 for roi in self.roi])
+            and self.single_cells.getNCoordinates() == 0)
         return result 
 
     def add_markers(self, markers):
@@ -161,14 +161,14 @@ class SyncytiaRoi:
         """
         # Save single cells
         markers = [{'idx': 0, 'position': (p.x, p.y)} 
-            for p in self.single_cells.getContainedPoints()[1:]]
+            for p in self.single_cells.getContainedPoints()]
         # Save syncytia
         for roi_idx, roi in enumerate(self.roi):
             markers += [
                 {
-                    'idx': self.roi_limit * roi_idx + roi.getCounter(idx + 1) + 1,
+                    'idx': self.roi_limit * roi_idx + roi.getCounter(idx) + 1,
                     'position': (p.x, p.y)
-                } for idx, p in enumerate(roi.getContainedPoints()[1:])
+                } for idx, p in enumerate(roi.getContainedPoints())
             ]
         return markers
 
