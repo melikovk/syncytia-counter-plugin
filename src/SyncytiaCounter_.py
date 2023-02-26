@@ -1,11 +1,10 @@
 import os.path
 import json
 
-from java.lang import Runnable
-from java.util.concurrent import Executors, TimeUnit
+from java.lang import Runnable, Thread
 from javax.swing import (JPanel, JFrame, JButton, JTextField, JCheckBox, JLabel,
     JScrollPane, BorderFactory, ButtonGroup, JComboBox, JRadioButton, 
-    JSeparator, WindowConstants)
+    JSeparator, WindowConstants, SwingUtilities)
 from java.awt import GridBagLayout, GridBagConstraints, GridLayout, Insets
 from java.awt.event import MouseAdapter
 
@@ -226,15 +225,10 @@ class SyncytiaCounter(JFrame, Runnable, ImageListener):
         self.output_buttons = []
         self.build_gui()
         ImagePlus.addImageListener(self)
-        # Add executor
-        self.scheduled_executor = Executors.newSingleThreadScheduledExecutor()
-        time_offset_to_start = 1000
-        time_between_runs = 100
-        self.scheduled_executor.scheduleWithFixedDelay(
-            self,
-            time_offset_to_start,
-            time_between_runs,
-            TimeUnit.MILLISECONDS)
+        # Create and start a thread to update 
+        self.is_alive = True
+        self.thread = Thread(self)
+        self.thread.start()
 
     def build_gui(self):
         # Build panel with control buttons
@@ -563,15 +557,19 @@ class SyncytiaCounter(JFrame, Runnable, ImageListener):
                 self.syncytia.nuclei_count(idx)))
 
     def run(self):
-        self.update_counts()
+        while self.is_alive:
+            SwingUtilities.invokeAndWait(lambda: self.update_counts())
+            self.thread.sleep(100)
 
     def close(self, event=None):
         if (
                 self.syncytia.is_saved()
                 or IJ.showMessageWithCancel(
                 "WARNING", "MARKERS ARE NOT SAVED! EXIT WITHOUT SAVING?")):
-            self.scheduled_executor.shutdown()
+            ImagePlus.removeImageListener(self)
             self.unlink_image()
+            self.is_alive = False
+            self.thread.join()
             self.dispose()
 
     def unlink_image(self):
