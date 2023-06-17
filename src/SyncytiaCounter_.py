@@ -131,28 +131,39 @@ class SyncytiaRoi:
 
     def append_roi(self):
         roi = PointRoi()
-        roi.setSize(self.marker_size)
-        roi.setPointType(self.marker_type)
-        roi.setShowLabels(self.show_labels)
         roi.setCounter(ROI_LIMIT - 1)
         roi.addPoint(-10, -10)
         self.roi.append(roi)
         self.overlay.add(roi)
+        self.set_markers(
+            self.marker_size,
+            self.marker_type,
+            self.show_labels,
+            -1,
+        )
 
-    def set_markers(self, marker_size, marker_type, show_labels):
+    def set_roi_markers(self, roi):
+        roi.setSize(self.marker_size)
+        roi.setPointType(self.marker_type)
+        roi.setShowLabels(self.show_labels)
+
+    def set_markers(
+        self,
+        marker_size,
+        marker_type,
+        show_labels,
+        roi_idx=None,
+    ):
         self.marker_size = marker_size
         self.marker_type = marker_type
         self.show_labels = show_labels
-        self.update_markers()
-
-    def update_markers(self):
-        for roi in self.roi:
-            roi.setSize(self.marker_size)
-            roi.setPointType(self.marker_type)
-            roi.setShowLabels(self.show_labels)
-        self.single_cells.setSize(self.marker_size)
-        self.single_cells.setPointType(self.marker_type)
-        self.single_cells.setShowLabels(False)
+        if roi_idx is None:
+            for roi in self.roi:
+                self.set_roi_markers(roi)
+            self.set_roi_markers(self.single_cells)
+            self.single_cells.setShowLabels(False)
+        else:
+            self.set_roi_markers(self.roi[roi_idx])
 
     def is_empty(self):
         result = (all([roi.getNCoordinates() == 0 for roi in self.roi])
@@ -256,7 +267,7 @@ class SyncytiaCounter(JFrame, Runnable, ImageListener):
         self.output_buttons = []
         self.build_gui()
         ImagePlus.addImageListener(self)
-        # Create and start a thread to update
+        # Create and start a thread to update GUI
         self.is_alive = True
         self.thread = Thread(self)
         self.thread.start()
@@ -544,10 +555,8 @@ class SyncytiaCounter(JFrame, Runnable, ImageListener):
                 IJ.showMessage("Could not open a file: " + fname)
             except ValueError:
                 IJ.showMessage("File {} is not in json format.".format(fname))
-            print(self.syncytia.nuclei_count(0))
             self.update_syncytia_panel()
             if self.imp is not None:
-                print('OK')
                 self.select_syncytium()
                 self.update_markers()
                 self.update_markers_view()
@@ -582,7 +591,7 @@ class SyncytiaCounter(JFrame, Runnable, ImageListener):
 
     def run(self):
         while self.is_alive:
-            SwingUtilities.invokeAndWait(lambda: self.update_counts())
+            self.update_counts()
             self.thread.sleep(100)
 
     def close(self, event=None):
