@@ -104,13 +104,13 @@ class SyncytiaRoi:
 
         """
         if idx == 0:
-            n = max(0, self.single_cells.getCount(0) - 1)
+            n = self.single_cells.getCount(0)
         else:
             q, r = divmod(idx - 1, ROI_LIMIT)
             if q + 1 > len(self.roi):
                 return 0
-            if (r == 0) or (r == ROI_LIMIT - 1):
-                n = max(0, self.roi[q].getCount(r) - 1)
+            if (r == ROI_LIMIT - 1):
+                n = self.roi[q].getCount(r) - 1
             else:
                 n = self.roi[q].getCount(r)
         return n
