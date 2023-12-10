@@ -96,11 +96,9 @@ class SyncytiaRoi:
 
     def nuclei_count(self, idx):
         """
-        Because PointRoi incorrectly reports point count for the counter with 
-        the index=0 in multi-point mode we have to correct the output 
-        (subtruct 1 if the count is larger than 0).
-        Similarly we correct for the index=ROI_LIMIT to correct for the dummy 
-        initial point
+        
+        We correct for the index=ROI_LIMIT to correct for the dummy 
+        initial point necessary to force multi-point mode.
 
         """
         if idx == 0:
